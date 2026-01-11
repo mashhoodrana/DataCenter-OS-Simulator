@@ -1,0 +1,26 @@
+# ===== OS / Editor =====
+.vscode/
+.DS_Store
+
+# ===== Build folders =====
+build/
+bin/
+obj/
+
+# ===== CMake =====
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+
+# ===== Executables =====
+*.exe
+*.out
+
+# ===== Logs =====
+logs/
+
+# ===== Qt =====
+*.autosave
+*.user
+*.pro.user*
