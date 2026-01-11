@@ -24,7 +24,7 @@ include_directories(
     ${CMAKE_SOURCE_DIR}/include/gui
 )
 
-# Core library sources (your existing code - directly in src/)
+# Core library sources
 set(CORE_SOURCES
     src/logger.cpp
     src/resource_manager.cpp

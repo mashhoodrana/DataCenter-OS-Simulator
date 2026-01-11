@@ -30,8 +30,10 @@ void Scheduler::addJob(Job* job) {
     allJobs.push_back(job);
     totalJobs++;
     
-    globalLogger->logJobEvent(job->getId(), 
-        "Added to scheduler ready queue (Priority: " + job->getPriorityString() + ")");
+    std::string msg = "Added to scheduler ready queue (Priority: ";
+    msg += job->getPriorityString();
+    msg += ")";
+    globalLogger->logJobEvent(job->getId(), msg);
 }
 
 void Scheduler::scheduleAll() {
@@ -53,8 +55,11 @@ void Scheduler::scheduleAll() {
     // Start jobs (they will wait for resources internally)
     for (Job* job : jobsToStart) {
         job->start();
-        globalLogger->logJobEvent(job->getId(), 
-            "Scheduled for execution (Priority: " + job->getPriorityString() + ")");
+        
+        std::string msg = "Scheduled for execution (Priority: ";
+        msg += job->getPriorityString();
+        msg += ")";
+        globalLogger->logJobEvent(job->getId(), msg);
         
         // Small delay to simulate arrival time differences
         std::this_thread::sleep_for(std::chrono::milliseconds(100));

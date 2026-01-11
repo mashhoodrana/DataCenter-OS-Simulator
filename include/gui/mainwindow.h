@@ -129,6 +129,10 @@ private:
     
     // Simulation thread
     std::thread simulationThread;
+    
+    void addJobToTable(int jobId, const QString& priority, const QString& status, int cpuCores, int ramGB);
+    void updateJobStatus(int jobId, const QString& newStatus);
+    
 };
 
 #endif // MAINWINDOW_H

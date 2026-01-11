@@ -17,12 +17,14 @@ Job::Job(int jobId, JobPriority prio, ResourceRequest needs,
     
     arrivalTime = std::chrono::steady_clock::now();
     
-    globalLogger->logJobEvent(id, 
-        "Arrived with priority=" + getPriorityString() + 
-        " requesting CPU:" + std::to_string(needs.cpuCores) +
-        " RAM:" + std::to_string(needs.ramGB) + "GB" +
-        " Disk:" + std::to_string(needs.diskSlots) +
-        " Network:" + std::to_string(needs.networkSlots));
+    std::string msg = "Arrived with priority=";
+    msg += getPriorityString();
+    msg += " requesting CPU:" + std::to_string(needs.cpuCores);
+    msg += " RAM:" + std::to_string(needs.ramGB) + "GB";
+    msg += " Disk:" + std::to_string(needs.diskSlots);
+    msg += " Network:" + std::to_string(needs.networkSlots);
+    
+    globalLogger->logJobEvent(id, msg);
 }
 
 Job::~Job() {
@@ -68,8 +70,8 @@ void Job::run() {
     
     // Start execution
     status = JobStatus::RUNNING;
-    globalLogger->logJobEvent(id, 
-        "Started execution (waited " + std::to_string(waitingTime) + "s)");
+    std::string msg = "Started execution (waited " + std::to_string(waitingTime) + "s)";
+    globalLogger->logJobEvent(id, msg);
     
     // Execute the job
     executeTask();
@@ -81,8 +83,8 @@ void Job::run() {
     executionTime = execDuration.count() / 1000.0;
     
     status = JobStatus::COMPLETED;
-    globalLogger->logJobEvent(id, 
-        "Completed (execution time: " + std::to_string(executionTime) + "s)");
+    msg = "Completed (execution time: " + std::to_string(executionTime) + "s)";
+    globalLogger->logJobEvent(id, msg);
     
     // Release resources
     resourceManager->releaseResources(id);
@@ -92,33 +94,33 @@ void Job::run() {
 }
 
 void Job::executeTask() {
-    // Simulate job execution time based on resource usage
-    // More resources = potentially longer execution
-    int baseTime = 1000; // 1 second base
-    int resourceFactor = resourceNeeds.cpuCores * 200 + 
-                        resourceNeeds.ramGB * 100 +
-                        resourceNeeds.diskSlots * 150 +
-                        resourceNeeds.networkSlots * 100;
+    // Simulate job execution with SLOWER timing for GUI visibility
+    int baseTime = 2000; // 2 seconds base
+    int resourceFactor = resourceNeeds.cpuCores * 250 + 
+                        resourceNeeds.ramGB * 150 +
+                        resourceNeeds.diskSlots * 200 +
+                        resourceNeeds.networkSlots * 150;
     
-    // Add some randomness
     std::random_device rd;
     std::mt19937 gen(rd());
-    std::uniform_int_distribution<> dis(-200, 200);
+    std::uniform_int_distribution<> dis(-300, 300);
     
     int sleepTime = baseTime + resourceFactor + dis(gen);
     
-    // Simulate work with phases
+    // Phase 1: CPU
     globalLogger->logJobEvent(id, "Phase 1: CPU computation");
     std::this_thread::sleep_for(std::chrono::milliseconds(sleepTime / 3));
     
+    // Phase 2: Disk
     globalLogger->logJobEvent(id, "Phase 2: Disk I/O operations");
     std::this_thread::sleep_for(std::chrono::milliseconds(sleepTime / 3));
     
+    // Phase 3: Network
     globalLogger->logJobEvent(id, "Phase 3: Network data transfer");
     std::this_thread::sleep_for(std::chrono::milliseconds(sleepTime / 3));
 }
 
-std::string Job::getPriorityString() const {
+const char* Job::getPriorityString() const {
     switch (priority) {
         case JobPriority::HIGH: return "HIGH";
         case JobPriority::MEDIUM: return "MEDIUM";
@@ -127,7 +129,7 @@ std::string Job::getPriorityString() const {
     }
 }
 
-std::string Job::getStatusString() const {
+const char* Job::getStatusString() const {
     switch (status) {
         case JobStatus::WAITING: return "WAITING";
         case JobStatus::RUNNING: return "RUNNING";

@@ -75,9 +75,9 @@ public:
     }
     
     // Utility
-    std::string getPriorityString() const;
-    std::string getStatusString() const;
-    std::string getSummary() const;
+    const char* getPriorityString() const;
+    const char* getStatusString() const;
+    std::string getSummary() const;  
 };
 
 #endif // JOB_HPP

@@ -1,6 +1,6 @@
 // ============================================
 // FILE: mainwindow.cpp  
-// DESCRIPTION: FINAL FIXED VERSION - All issues resolved
+// DESCRIPTION: COMPLETE FIXED VERSION
 // ============================================
 
 #include "../../include/gui/mainwindow.h"
@@ -21,7 +21,6 @@
 #include <QScrollArea>
 #include <random>
 
-// ==================== CONSTRUCTOR & DESTRUCTOR ====================
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , isRunning(false)
@@ -56,109 +55,60 @@ MainWindow::~MainWindow()
     cleanupSimulation();
 }
 
-// ==================== UI SETUP ====================
 void MainWindow::setupUI()
 {
     setWindowTitle("Data Center Resource Management System - OS Project");
     setMinimumSize(1400, 900);
     resize(1600, 1000);
     
-    // FIXED: Light background, dark text everywhere
     setStyleSheet(R"(
-        QMainWindow {
-            background-color: #f0f2f5;
-        }
-        QWidget {
-            color: #1a1a1a;
-        }
+        QMainWindow { background-color: #f0f2f5; }
+        QWidget { color: #1a1a1a; }
         QGroupBox {
-            font-size: 15px;
-            font-weight: bold;
-            color: #1a1a1a;
-            border: 2px solid #c0c0c0;
-            border-radius: 10px;
-            margin-top: 15px;
-            padding: 20px 15px 15px 15px;
+            font-size: 15px; font-weight: bold; color: #1a1a1a;
+            border: 2px solid #c0c0c0; border-radius: 10px;
+            margin-top: 15px; padding: 20px 15px 15px 15px;
             background-color: #ffffff;
         }
         QGroupBox::title {
-            subcontrol-origin: margin;
-            subcontrol-position: top left;
-            left: 15px;
-            padding: 5px 12px;
-            background-color: #ffffff;
-            color: #1976D2;
+            subcontrol-origin: margin; subcontrol-position: top left;
+            left: 15px; padding: 5px 12px;
+            background-color: #ffffff; color: #1976D2;
         }
         QPushButton {
-            border: none;
-            border-radius: 8px;
-            padding: 14px 30px;
-            font-weight: bold;
-            font-size: 15px;
-            min-height: 50px;
-            color: white;
+            border: none; border-radius: 8px;
+            padding: 14px 30px; font-weight: bold;
+            font-size: 15px; min-height: 50px; color: white;
         }
-        QLabel {
-            color: #1a1a1a;
-            font-size: 14px;
-        }
+        QLabel { color: #1a1a1a; font-size: 14px; }
         QProgressBar {
-            border: 2px solid #d0d0d0;
-            border-radius: 8px;
-            text-align: center;
-            background-color: #f5f5f5;
-            color: #000000;
-            font-weight: bold;
-            font-size: 13px;
-            min-height: 38px;
+            border: 2px solid #d0d0d0; border-radius: 8px;
+            text-align: center; background-color: #f5f5f5;
+            color: #000000; font-weight: bold;
+            font-size: 13px; min-height: 38px;
         }
-        QProgressBar::chunk {
-            border-radius: 6px;
-        }
+        QProgressBar::chunk { border-radius: 6px; }
         QTableWidget {
-            border: 2px solid #d0d0d0;
-            border-radius: 8px;
-            background-color: white;
-            gridline-color: #e0e0e0;
-            font-size: 13px;
-            color: #1a1a1a;
+            border: 2px solid #d0d0d0; border-radius: 8px;
+            background-color: white; gridline-color: #e0e0e0;
+            font-size: 13px; color: #1a1a1a;
         }
-        QTableWidget::item {
-            padding: 12px;
-            color: #1a1a1a;
-        }
+        QTableWidget::item { padding: 12px; color: #1a1a1a; }
         QHeaderView::section {
-            background-color: #1976D2;
-            color: white;
-            padding: 14px;
-            border: none;
-            font-weight: bold;
-            font-size: 14px;
+            background-color: #1976D2; color: white;
+            padding: 14px; border: none;
+            font-weight: bold; font-size: 14px;
         }
         QTextEdit {
-            border: 2px solid #d0d0d0;
-            border-radius: 8px;
+            border: 2px solid #d0d0d0; border-radius: 8px;
             background-color: #fafafa;
             font-family: 'Consolas', 'Courier New', monospace;
-            font-size: 12px;
-            color: #1a1a1a;
-            padding: 10px;
+            font-size: 12px; color: #1a1a1a; padding: 10px;
         }
         QSpinBox, QComboBox {
-            padding: 12px;
-            border: 2px solid #1976D2;
-            border-radius: 8px;
-            background: white;
-            font-size: 16px;
-            color: #1a1a1a;
-            min-height: 50px;
-        }
-        QMessageBox {
-            background-color: white;
-        }
-        QMessageBox QLabel {
-            color: #1a1a1a;
-            font-size: 14px;
+            padding: 12px; border: 2px solid #1976D2;
+            border-radius: 8px; background: white;
+            font-size: 16px; color: #1a1a1a; min-height: 50px;
         }
     )");
     
@@ -786,21 +736,10 @@ void MainWindow::onStartSimulation()
 {
     int numJobs = spinJobCount->value();
     
-    // FIXED: White background, black text
     QMessageBox msgBox(this);
     msgBox.setWindowTitle("Starting Simulation");
-    msgBox.setStyleSheet(
-        "QMessageBox { background-color: white; }"
-        "QLabel { color: #1a1a1a; font-size: 15px; }"
-        "QPushButton { background-color: #2196F3; color: white; padding: 10px 30px; "
-        "border-radius: 6px; font-size: 14px; min-width: 80px; }"
-    );
-    msgBox.setText(
-        QString("<h3 style='color: #1976D2;'>Starting Simulation</h3>"
-                "<p style='color: #1a1a1a; font-size: 14px;'>"
-                "<b>Jobs:</b> %1<br><b>Algorithm:</b> Priority Scheduling</p>")
-        .arg(numJobs)
-    );
+    msgBox.setText(QString("<h3 style='color: #1976D2;'>Starting Simulation</h3>"
+                          "<p style='color: #1a1a1a;'><b>Jobs:</b> %1</p>").arg(numJobs));
     msgBox.setStandardButtons(QMessageBox::Ok);
     msgBox.exec();
     
@@ -813,16 +752,16 @@ void MainWindow::onStartSimulation()
     diskUsageBar->setValue(0);
     networkUsageBar->setValue(0);
     
-    lblTotalJobs->setText(QString("Total: %1").arg(numJobs));
-    lblActiveJobs->setText("Active: 0");
-    lblCompletedJobs->setText("Completed: 0");
-    lblAvgWaitTime->setText("Wait: 0.00s");
-    lblThroughput->setText("Throughput: 0.00");
-    lblDeadlocksPrevented->setText("Deadlocks: 0");
+    lblTotalJobs->setText(QString("📋 Total: %1").arg(numJobs));
+    lblActiveJobs->setText("🔄 Active: 0");
+    lblCompletedJobs->setText("✅ Completed: 0");
+    lblAvgWaitTime->setText("⏱️ Wait: 0.00s");
+    lblThroughput->setText("⚡ Throughput: 0.00");
+    lblDeadlocksPrevented->setText("🛡️ Deadlocks: 0");
     
     isRunning = true;
     stopRequested = false;
-    updateTimer->start(500);
+    updateTimer->start(100);  // FASTER: Update every 100ms
     
     if (simulationThread.joinable()) {
         simulationThread.join();
@@ -858,7 +797,7 @@ void MainWindow::onViewLogs()
     QDesktopServices::openUrl(QUrl::fromLocalFile(logsPath));
 }
 
-// ==================== SIMULATION ====================
+// ==================== SIMULATION - FIXED FOR REAL-TIME DISPLAY ====================
 void MainWindow::runSimulation(int numJobs)
 {
     try {
@@ -874,6 +813,8 @@ void MainWindow::runSimulation(int numJobs)
         std::random_device rd;
         std::mt19937 gen(rd());
         
+        // Create jobs
+        std::vector<Job*> allJobs;
         for (int i = 1; i <= numJobs && !stopRequested; i++) {
             std::uniform_int_distribution<> prioDist(1, 3);
             JobPriority priority = static_cast<JobPriority>(prioDist(gen));
@@ -885,25 +826,81 @@ void MainWindow::runSimulation(int numJobs)
             
             int cpuMultiplier = (priority == JobPriority::HIGH) ? 2 : 1;
             
-            ResourceRequest needs(cpuDist(gen) * cpuMultiplier, ramDist(gen), diskDist(gen), netDist(gen));
+            ResourceRequest needs(cpuDist(gen) * cpuMultiplier, ramDist(gen), 
+                                 diskDist(gen), netDist(gen));
+            
             Job* job = new Job(i, priority, needs, resourceManager, deadlockManager);
             scheduler->addJob(job);
+            allJobs.push_back(job);
             
-            addLogMessage("Job " + QString::number(i), 
-                QString("Created (%1)").arg(QString::fromStdString(job->getPriorityString())));
+            QString priorityStr;
+            switch (priority) {
+                case JobPriority::HIGH: priorityStr = "HIGH"; break;
+                case JobPriority::MEDIUM: priorityStr = "MEDIUM"; break;
+                case JobPriority::LOW: priorityStr = "LOW"; break;
+            }
             
-            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            addLogMessage(QString("Job %1").arg(i), 
+                QString("Created with %1 priority (CPU:%2, RAM:%3GB)")
+                .arg(priorityStr).arg(needs.cpuCores).arg(needs.ramGB));
+            
+            addJobToTable(i, priorityStr, "WAITING", needs.cpuCores, needs.ramGB);
+            std::this_thread::sleep_for(std::chrono::milliseconds(150));
         }
         
         if (!stopRequested) {
             addLogMessage("System", "Starting scheduling...");
             scheduler->scheduleAll();
+            
+            // Monitor jobs in real-time
+            int lastCompleted = 0;
+            while (isRunning && !stopRequested) {
+                int completed = scheduler->getCompletedJobs();
+                
+                // Update job statuses
+                for (size_t i = 0; i < allJobs.size(); i++) {
+                    Job* job = allJobs[i];
+                    QString status;
+                    
+                    switch (job->getStatus()) {
+                        case JobStatus::WAITING: status = "WAITING"; break;
+                        case JobStatus::RUNNING: 
+                            status = "RUNNING";
+                            if (lastCompleted < (int)i + 1) {
+                                addLogMessage(QString("Job %1").arg(job->getId()), "Started");
+                            }
+                            break;
+                        case JobStatus::BLOCKED: status = "BLOCKED"; break;
+                        case JobStatus::COMPLETED: 
+                            status = "COMPLETED";
+                            break;
+                    }
+                    
+                    updateJobStatus(job->getId(), status);
+                }
+                
+                // Check completion
+                if (completed > lastCompleted) {
+                    for (int i = lastCompleted + 1; i <= completed; i++) {
+                        addLogMessage(QString("Job %1").arg(i), "Completed");
+                    }
+                    lastCompleted = completed;
+                }
+                
+                if (completed >= numJobs) {
+                    break;
+                }
+                
+                std::this_thread::sleep_for(std::chrono::milliseconds(200));
+            }
+            
             scheduler->waitForAllJobs();
             addLogMessage("System", "All jobs completed!");
         }
         
         isRunning = false;
         updateTimer->stop();
+        std::this_thread::sleep_for(std::chrono::milliseconds(500));
         
         QMetaObject::invokeMethod(this, [this]() {
             showResultsScreen();
@@ -921,21 +918,48 @@ void MainWindow::updateUI()
 {
     if (!resourceManager || !scheduler) return;
     
-    cpuUsageBar->setValue(static_cast<int>(resourceManager->getCPUUtilization()));
-    ramUsageBar->setValue(static_cast<int>(resourceManager->getRAMUtilization()));
-    diskUsageBar->setValue(static_cast<int>(resourceManager->getDiskUtilization()));
-    networkUsageBar->setValue(static_cast<int>(resourceManager->getNetworkUtilization()));
+    // Get PEAK resource usage (not instant)
+    static int peakCPU = 0, peakRAM = 0, peakDisk = 0, peakNet = 0;
+    
+    int cpu = static_cast<int>(resourceManager->getCPUUtilization());
+    int ram = static_cast<int>(resourceManager->getRAMUtilization());
+    int disk = static_cast<int>(resourceManager->getDiskUtilization());
+    int net = static_cast<int>(resourceManager->getNetworkUtilization());
+    
+    // Track peaks
+    if (cpu > peakCPU) peakCPU = cpu;
+    if (ram > peakRAM) peakRAM = ram;
+    if (disk > peakDisk) peakDisk = disk;
+    if (net > peakNet) peakNet = net;
+    
+    // Show peak values (they won't drop to 0 immediately)
+    cpuUsageBar->setValue(peakCPU);
+    ramUsageBar->setValue(peakRAM);
+    diskUsageBar->setValue(peakDisk);
+    networkUsageBar->setValue(peakNet);
     
     int active = scheduler->getTotalJobs() - scheduler->getCompletedJobs();
-    lblActiveJobs->setText(QString("Active: %1").arg(active));
-    lblCompletedJobs->setText(QString("Completed: %1").arg(scheduler->getCompletedJobs()));
+    int completed = scheduler->getCompletedJobs();
     
-    if (scheduler->getCompletedJobs() > 0) {
-        lblAvgWaitTime->setText(QString("Wait: %1s").arg(scheduler->getAverageWaitingTime(), 0, 'f', 2));
-        lblThroughput->setText(QString("Throughput: %1").arg(scheduler->getThroughput(), 0, 'f', 2));
+    lblActiveJobs->setText(QString("🔄 Active: %1").arg(active));
+    lblCompletedJobs->setText(QString("✅ Completed: %1").arg(completed));
+    
+    if (completed > 0) {
+        lblAvgWaitTime->setText(QString("⏱️ Wait: %1s")
+            .arg(scheduler->getAverageWaitingTime(), 0, 'f', 2));
+        lblThroughput->setText(QString("⚡ Throughput: %1")
+            .arg(scheduler->getThroughput(), 0, 'f', 2));
     }
     
-    lblDeadlocksPrevented->setText(QString("Deadlocks: %1").arg(deadlockManager->getDeadlocksPrevented()));
+    lblDeadlocksPrevented->setText(QString("🛡️ Deadlocks: %1")
+        .arg(deadlockManager->getDeadlocksPrevented()));
+    
+    // Log high usage
+    static int lastLoggedCPU = 0;
+    if (peakCPU >= 50 && peakCPU != lastLoggedCPU && peakCPU % 25 == 0) {
+        addLogMessage("System", QString("CPU peak: %1%").arg(peakCPU));
+        lastLoggedCPU = peakCPU;
+    }
 }
 
 void MainWindow::displayFinalResults()
@@ -964,6 +988,73 @@ void MainWindow::addLogMessage(const QString& source, const QString& message)
     
     QMetaObject::invokeMethod(this, [this, logEntry]() {
         logView->append(logEntry);
+    }, Qt::QueuedConnection);
+}
+
+// ==================== HELPER FUNCTIONS FOR JOB TABLE ====================
+void MainWindow::addJobToTable(int jobId, const QString& priority, const QString& status,
+                                int cpuCores, int ramGB)
+{
+    QMetaObject::invokeMethod(this, [this, jobId, priority, status, cpuCores, ramGB]() {
+        int row = jobTable->rowCount();
+        jobTable->insertRow(row);
+        
+        auto* idItem = new QTableWidgetItem(QString::number(jobId));
+        idItem->setTextAlignment(Qt::AlignCenter);
+        
+        auto* prioItem = new QTableWidgetItem(priority);
+        prioItem->setTextAlignment(Qt::AlignCenter);
+        if (priority == "HIGH") {
+            prioItem->setForeground(QColor("#f44336"));
+            prioItem->setFont(QFont("", -1, QFont::Bold));
+        } else if (priority == "MEDIUM") {
+            prioItem->setForeground(QColor("#FF9800"));
+        }
+        
+        auto* statusItem = new QTableWidgetItem(status);
+        statusItem->setTextAlignment(Qt::AlignCenter);
+        statusItem->setForeground(QColor("#2196F3"));
+        
+        auto* cpuItem = new QTableWidgetItem(QString::number(cpuCores));
+        cpuItem->setTextAlignment(Qt::AlignCenter);
+        
+        auto* ramItem = new QTableWidgetItem(QString::number(ramGB));
+        ramItem->setTextAlignment(Qt::AlignCenter);
+        
+        auto* waitItem = new QTableWidgetItem("0.00");
+        waitItem->setTextAlignment(Qt::AlignCenter);
+        
+        jobTable->setItem(row, 0, idItem);
+        jobTable->setItem(row, 1, prioItem);
+        jobTable->setItem(row, 2, statusItem);
+        jobTable->setItem(row, 3, cpuItem);
+        jobTable->setItem(row, 4, ramItem);
+        jobTable->setItem(row, 5, waitItem);
+        
+        jobTable->scrollToBottom();
+    }, Qt::QueuedConnection);
+}
+
+void MainWindow::updateJobStatus(int jobId, const QString& newStatus)
+{
+    QMetaObject::invokeMethod(this, [this, jobId, newStatus]() {
+        for (int row = 0; row < jobTable->rowCount(); row++) {
+            auto* idItem = jobTable->item(row, 0);
+            if (idItem && idItem->text().toInt() == jobId) {
+                auto* statusItem = jobTable->item(row, 2);
+                if (statusItem && statusItem->text() != newStatus) {
+                    statusItem->setText(newStatus);
+                    
+                    if (newStatus == "RUNNING") {
+                        statusItem->setForeground(QColor("#4CAF50"));
+                        statusItem->setFont(QFont("", -1, QFont::Bold));
+                    } else if (newStatus == "COMPLETED") {
+                        statusItem->setForeground(QColor("#757575"));
+                    }
+                }
+                break;
+            }
+        }
     }, Qt::QueuedConnection);
 }
 
