@@ -7,11 +7,13 @@ A comprehensive Operating System simulation that models a **Data Center Resource
 ## 📚 OS Concepts Implemented
 
 ### 1. Process/Thread Management
+
 - Each job runs as a separate thread
 - Multi-phase execution (CPU → Disk → Network)
 - Dynamic job creation and lifecycle management
 
 ### 2. CPU Scheduling
+
 - **Priority Scheduling Algorithm**
   - HIGH Priority: System jobs
   - MEDIUM Priority: Paid users
@@ -19,28 +21,33 @@ A comprehensive Operating System simulation that models a **Data Center Resource
 - Performance metrics: waiting time, turnaround time, throughput
 
 ### 3. Synchronization & Concurrency
+
 - **Mutex locks** for RAM and Disk access
 - **Semaphores** for CPU core allocation
 - **Condition variables** for resource waiting queues
 - Race condition prevention
 
 ### 4. Deadlock Handling
+
 - **Banker's Algorithm** implementation
 - Safe state verification before resource allocation
 - Deadlock prevention with safe sequence generation
 - Statistics tracking
 
 ### 5. Memory Management
+
 - Dynamic memory allocation for job structures
 - Resource tracking using vectors
 - Proper deallocation and cleanup
 
 ### 6. File Management & Logging
+
 - System-wide event log: `logs/system.log`
 - Per-job summary files: `logs/job_*.log`
 - Thread-safe logging with timestamps
 
 ### 7. Performance Metrics
+
 - Average waiting time
 - Average turnaround time
 - Resource utilization percentages
@@ -60,6 +67,7 @@ A comprehensive Operating System simulation that models a **Data Center Resource
 Download and install from: https://www.mingw-w64.org/
 
 Or use MSYS2:
+
 ```bash
 # Install MSYS2 from https://www.msys2.org/
 # Then run in MSYS2 terminal:
@@ -71,6 +79,7 @@ pacman -S make
 Add to PATH: `C:\msys64\mingw64\bin`
 
 ### 2. Verify Installation
+
 ```bash
 g++ --version
 mingw32-make --version
@@ -79,31 +88,37 @@ mingw32-make --version
 ## 🚀 Build and Run
 
 ### Build the project:
+
 ```bash
 mingw32-make
 ```
 
 ### Run the simulation:
+
 ```bash
 mingw32-make run
 ```
 
 ### Or manually:
+
 ```bash
 bin\datacenter.exe
 ```
 
 ### Clean build files:
+
 ```bash
 mingw32-make clean
 ```
 
 ### Clean everything (including logs):
+
 ```bash
 mingw32-make cleanall
 ```
 
 ## 📊 Sample Output
+
 ```
 ╔════════════════════════════════════════════════════════════╗
 ║                                                            ║
@@ -127,6 +142,7 @@ Deadlocks Prevented: 3
 ```
 
 ## 📁 Project Structure
+
 ```
 DataCenter-Simulator/
 ├── include/
@@ -157,7 +173,7 @@ DataCenter-Simulator/
 ✅ **Priority-based** CPU scheduling  
 ✅ **Comprehensive logging** system  
 ✅ **Performance metrics** collection  
-✅ **Modular design** for easy GUI integration  
+✅ **Modular design** for easy GUI integration
 
 ## 📈 Future Enhancements
 

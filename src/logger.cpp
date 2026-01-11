@@ -1,12 +1,20 @@
 // ============================================
 // FILE: logger.cpp
-// DESCRIPTION: Simplified logging implementation
+// DESCRIPTION: Cross-platform logging implementation
 // ============================================
 
 #include "../include/logger.hpp"
-#include <direct.h>
-#include <sys/stat.h>
 #include <chrono>
+#include <sys/stat.h>
+#include <sys/types.h>
+
+// Cross-platform directory creation
+#ifdef _WIN32
+    #include <direct.h>
+    #define MKDIR(path) _mkdir(path)
+#else
+    #define MKDIR(path) mkdir(path, 0755)
+#endif
 
 // Global logger instance
 Logger* globalLogger = nullptr;
@@ -15,10 +23,10 @@ Logger::Logger() {
     std::cout << "[DEBUG] Inside Logger constructor...\n";
     std::cout.flush();
     
-    // Create logs directory
+    // Create logs directory (cross-platform)
     struct stat info;
     if (stat("logs", &info) != 0) {
-        _mkdir("logs");
+        MKDIR("logs");
     }
     
     std::cout << "[DEBUG] Logs directory created/verified\n";

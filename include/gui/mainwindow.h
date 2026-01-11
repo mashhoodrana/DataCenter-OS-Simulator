@@ -11,14 +11,19 @@
 #include <QProgressBar>
 #include <QTextEdit>
 #include <QComboBox>
-#include <memory>
-#include <vector>
+#include <QDesktopServices>
+#include <QUrl>
+#include <QDir>
+#include <thread>
+#include <mutex>
+#include <atomic>
 
-// Forward declarations for your core classes
-// We'll integrate these in Phase 2
-// class ResourceManager;
-// class Scheduler;
-// class DeadlockDetector;
+// Include your console project headers
+#include "../resource_manager.hpp"
+#include "../scheduler.hpp"
+#include "../deadlock.hpp"
+#include "../job.hpp"
+#include "../logger.hpp"
 
 class MainWindow : public QMainWindow
 {
@@ -38,17 +43,14 @@ private slots:
     // Simulation control
     void onStartSimulation();
     void onStopSimulation();
-    void onPauseSimulation();
-    void onResetSimulation();
+    void onNewSimulation();
+    void onViewLogs();
     
-    // Timer updates
+    // UI updates
     void updateUI();
-    void updateResourceUsage();
-    void updateJobList();
-    void updateMetrics();
 
 private:
-    // Screen setup functions
+    // Screen creation
     QWidget* createWelcomeScreen();
     QWidget* createConfigScreen();
     QWidget* createSimulationScreen();
@@ -59,9 +61,13 @@ private:
     void setupMenuBar();
     void setupStatusBar();
     
-    // Simulation control
-    void initializeSimulation(int numJobs);
+    // Simulation
+    void runSimulation(int numJobs);
     void cleanupSimulation();
+    
+    // Display helpers
+    void displayFinalResults();
+    void addLogMessage(const QString& source, const QString& message);
     
     // Main container
     QStackedWidget *stackedWidget;
@@ -72,21 +78,16 @@ private:
     QWidget *simulationScreen;
     QWidget *resultsScreen;
     
-    // Welcome Screen widgets
+    // Welcome Screen
     QPushButton *btnGetStarted;
     
-    // Config Screen widgets
+    // Config Screen
     QSpinBox *spinJobCount;
-    QComboBox *cmbPriorityDist;
-    QSpinBox *spinCPUCores;
-    QSpinBox *spinRAMSize;
-    QSpinBox *spinDiskOps;
-    QSpinBox *spinNetworkSpeed;
+    QComboBox *cmbScheduling;
     QPushButton *btnStartSimulation;
     QPushButton *btnBackToWelcome;
     
-    // Simulation Screen widgets
-    QPushButton *btnPause;
+    // Simulation Screen
     QPushButton *btnStop;
     QProgressBar *cpuUsageBar;
     QProgressBar *ramUsageBar;
@@ -101,28 +102,33 @@ private:
     QTableWidget *jobTable;
     QTextEdit *logView;
     
-    // Results Screen widgets
-    QLabel *lblFinalStats;
-    QPushButton *btnRunAgain;
-    QPushButton *btnExport;
+    // Results Screen
+    QLabel *lblFinalTotalJobs;
+    QLabel *lblFinalCompletedJobs;
+    QLabel *lblFinalAvgWaitTime;
+    QLabel *lblFinalAvgTurnaroundTime;
+    QLabel *lblFinalThroughput;
+    QLabel *lblFinalCPUUtil;
+    QLabel *lblFinalRAMUtil;
+    QLabel *lblFinalDiskUtil;
+    QLabel *lblFinalNetworkUtil;
+    QLabel *lblFinalDeadlocksPrevented;
+    QPushButton *btnNewSimulation;
+    QPushButton *btnViewLogs;
+    QPushButton *btnExit;
     
     // Simulation state
     QTimer *updateTimer;
-    bool isRunning;
-    bool isPaused;
-    int totalJobs;
-    int completedJobs;
-    int activeJobs;
-    int simulationCounter;
+    std::atomic<bool> isRunning;
+    std::atomic<bool> stopRequested;
     
-    // Configuration values
-    int configCPUCores;
-    int configRAMSize;
-    int configDiskOps;
-    int configNetworkSpeed;
+    // Core simulation objects (using raw pointers for proper lifecycle management)
+    ResourceManager* resourceManager;
+    DeadlockManager* deadlockManager;
+    Scheduler* scheduler;
     
-    // Mock data for testing
-    std::vector<int> mockJobIds;
+    // Simulation thread
+    std::thread simulationThread;
 };
 
 #endif // MAINWINDOW_H

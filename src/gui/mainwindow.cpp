@@ -1,4 +1,9 @@
-#include "mainwindow.h"
+// ============================================
+// FILE: mainwindow.cpp  
+// DESCRIPTION: FINAL FIXED VERSION - All issues resolved
+// ============================================
+
+#include "../../include/gui/mainwindow.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QGroupBox>
@@ -10,150 +15,257 @@
 #include <QFont>
 #include <QSplitter>
 #include <QFormLayout>
-#include <QFrame>
+#include <QFileDialog>
+#include <QTextStream>
+#include <QDesktopServices>
+#include <QScrollArea>
+#include <random>
 
+// ==================== CONSTRUCTOR & DESTRUCTOR ====================
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , isRunning(false)
-    , isPaused(false)
-    , totalJobs(0)
-    , completedJobs(0)
-    , activeJobs(0)
-    , simulationCounter(0)
-    , configCPUCores(8)
-    , configRAMSize(32)
-    , configDiskOps(100)
-    , configNetworkSpeed(1000)
+    , stopRequested(false)
+    , resourceManager(nullptr)
+    , deadlockManager(nullptr)
+    , scheduler(nullptr)
 {
+    if (!globalLogger) {
+        globalLogger = new Logger();
+    }
+    
     setupUI();
     setupMenuBar();
     setupStatusBar();
     
-    // Initialize timer for UI updates
     updateTimer = new QTimer(this);
     connect(updateTimer, &QTimer::timeout, this, &MainWindow::updateUI);
     
-    // Start with welcome screen
     showWelcomeScreen();
 }
 
 MainWindow::~MainWindow()
 {
+    if (updateTimer) {
+        updateTimer->stop();
+    }
+    stopRequested = true;
+    if (simulationThread.joinable()) {
+        simulationThread.join();
+    }
     cleanupSimulation();
 }
 
+// ==================== UI SETUP ====================
 void MainWindow::setupUI()
 {
-    setWindowTitle("Data Center Resource Management System");
-    setMinimumSize(1200, 800);
-    resize(1400, 900);
+    setWindowTitle("Data Center Resource Management System - OS Project");
+    setMinimumSize(1400, 900);
+    resize(1600, 1000);
     
-    // Create stacked widget for multiple screens
+    // FIXED: Light background, dark text everywhere
+    setStyleSheet(R"(
+        QMainWindow {
+            background-color: #f0f2f5;
+        }
+        QWidget {
+            color: #1a1a1a;
+        }
+        QGroupBox {
+            font-size: 15px;
+            font-weight: bold;
+            color: #1a1a1a;
+            border: 2px solid #c0c0c0;
+            border-radius: 10px;
+            margin-top: 15px;
+            padding: 20px 15px 15px 15px;
+            background-color: #ffffff;
+        }
+        QGroupBox::title {
+            subcontrol-origin: margin;
+            subcontrol-position: top left;
+            left: 15px;
+            padding: 5px 12px;
+            background-color: #ffffff;
+            color: #1976D2;
+        }
+        QPushButton {
+            border: none;
+            border-radius: 8px;
+            padding: 14px 30px;
+            font-weight: bold;
+            font-size: 15px;
+            min-height: 50px;
+            color: white;
+        }
+        QLabel {
+            color: #1a1a1a;
+            font-size: 14px;
+        }
+        QProgressBar {
+            border: 2px solid #d0d0d0;
+            border-radius: 8px;
+            text-align: center;
+            background-color: #f5f5f5;
+            color: #000000;
+            font-weight: bold;
+            font-size: 13px;
+            min-height: 38px;
+        }
+        QProgressBar::chunk {
+            border-radius: 6px;
+        }
+        QTableWidget {
+            border: 2px solid #d0d0d0;
+            border-radius: 8px;
+            background-color: white;
+            gridline-color: #e0e0e0;
+            font-size: 13px;
+            color: #1a1a1a;
+        }
+        QTableWidget::item {
+            padding: 12px;
+            color: #1a1a1a;
+        }
+        QHeaderView::section {
+            background-color: #1976D2;
+            color: white;
+            padding: 14px;
+            border: none;
+            font-weight: bold;
+            font-size: 14px;
+        }
+        QTextEdit {
+            border: 2px solid #d0d0d0;
+            border-radius: 8px;
+            background-color: #fafafa;
+            font-family: 'Consolas', 'Courier New', monospace;
+            font-size: 12px;
+            color: #1a1a1a;
+            padding: 10px;
+        }
+        QSpinBox, QComboBox {
+            padding: 12px;
+            border: 2px solid #1976D2;
+            border-radius: 8px;
+            background: white;
+            font-size: 16px;
+            color: #1a1a1a;
+            min-height: 50px;
+        }
+        QMessageBox {
+            background-color: white;
+        }
+        QMessageBox QLabel {
+            color: #1a1a1a;
+            font-size: 14px;
+        }
+    )");
+    
     stackedWidget = new QStackedWidget(this);
     setCentralWidget(stackedWidget);
     
-    // Create all screens
     welcomeScreen = createWelcomeScreen();
     configScreen = createConfigScreen();
     simulationScreen = createSimulationScreen();
     resultsScreen = createResultsScreen();
     
-    // Add screens to stack
     stackedWidget->addWidget(welcomeScreen);
     stackedWidget->addWidget(configScreen);
     stackedWidget->addWidget(simulationScreen);
     stackedWidget->addWidget(resultsScreen);
 }
 
+void MainWindow::setupMenuBar()
+{
+    QMenuBar *menuBar = new QMenuBar(this);
+    menuBar->setStyleSheet(
+        "QMenuBar { background-color: white; color: #1a1a1a; padding: 8px; font-size: 13px; }"
+        "QMenuBar::item { padding: 10px 15px; }"
+        "QMenuBar::item:selected { background-color: #1976D2; color: white; }"
+        "QMenu { background-color: white; color: #1a1a1a; border: 1px solid #d0d0d0; }"
+        "QMenu::item { padding: 8px 30px; }"
+        "QMenu::item:selected { background-color: #1976D2; color: white; }"
+    );
+    setMenuBar(menuBar);
+    
+    QMenu *fileMenu = menuBar->addMenu("&File");
+    QAction *newSimAction = fileMenu->addAction("New Simulation");
+    connect(newSimAction, &QAction::triggered, this, &MainWindow::showConfigScreen);
+    fileMenu->addSeparator();
+    QAction *exitAction = fileMenu->addAction("Exit");
+    exitAction->setShortcut(QKeySequence::Quit);
+    connect(exitAction, &QAction::triggered, this, &QMainWindow::close);
+    
+    QMenu *helpMenu = menuBar->addMenu("&Help");
+    QAction *aboutAction = helpMenu->addAction("About");
+    connect(aboutAction, &QAction::triggered, this, [this]() {
+        QMessageBox::about(this, "About",
+            "<h2 style='color: #1976D2;'>Data Center Simulator</h2>"
+            "<p style='color: #1a1a1a;'><b>Version:</b> 1.0<br>"
+            "<b>OS Concepts:</b> Threading, Scheduling, Deadlock Prevention</p>");
+    });
+}
+
+void MainWindow::setupStatusBar()
+{
+    statusBar()->showMessage("Ready");
+    statusBar()->setStyleSheet(
+        "QStatusBar { border-top: 2px solid #d0d0d0; padding: 10px; "
+        "background-color: white; color: #1a1a1a; font-size: 13px; }"
+    );
+}
+
 // ==================== WELCOME SCREEN ====================
 QWidget* MainWindow::createWelcomeScreen()
 {
     QWidget *screen = new QWidget(this);
-    screen->setStyleSheet("QWidget { background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #1a1a2e, stop:1 #16213e); }");
+    screen->setStyleSheet(
+        "QWidget { background: qlineargradient(x1:0, y1:0, x2:1, y2:1, "
+        "stop:0 #1565C0, stop:1 #1E88E5); }"
+    );
     
     QVBoxLayout *layout = new QVBoxLayout(screen);
     layout->setAlignment(Qt::AlignCenter);
-    layout->setSpacing(30);
+    layout->setSpacing(40);
     
-    // Logo/Icon placeholder
     QLabel *iconLabel = new QLabel("🏢", screen);
-    iconLabel->setStyleSheet("font-size: 80px;");
+    QFont iconFont;
+    iconFont.setPointSize(100);
+    iconLabel->setFont(iconFont);
     iconLabel->setAlignment(Qt::AlignCenter);
+    iconLabel->setStyleSheet("color: white;");
     
-    // Title
-    QLabel *title = new QLabel("Data Center Resource\nManagement System", screen);
-    title->setStyleSheet(
-        "font-size: 36px; "
-        "font-weight: bold; "
-        "color: white; "
-        "padding: 20px;"
-    );
+    QLabel *title = new QLabel("Data Center\nResource Manager", screen);
+    QFont titleFont;
+    titleFont.setPointSize(52);
+    titleFont.setBold(true);
+    title->setFont(titleFont);
+    title->setStyleSheet("color: white;");
     title->setAlignment(Qt::AlignCenter);
     
-    // Subtitle
     QLabel *subtitle = new QLabel("Operating System Concepts Simulation", screen);
-    subtitle->setStyleSheet(
-        "font-size: 18px; "
-        "color: #b0b0b0; "
-        "padding: 10px;"
-    );
+    QFont subtitleFont;
+    subtitleFont.setPointSize(22);
+    subtitle->setFont(subtitleFont);
+    subtitle->setStyleSheet("color: #E3F2FD;");
     subtitle->setAlignment(Qt::AlignCenter);
     
-    // Feature list
-    QLabel *features = new QLabel(
-        "✓ Multi-threaded Job Execution\n"
-        "✓ Priority-based CPU Scheduling\n"
-        "✓ Deadlock Prevention (Banker's Algorithm)\n"
-        "✓ Real-time Resource Monitoring\n"
-        "✓ Performance Metrics & Analytics",
-        screen
-    );
-    features->setStyleSheet(
-        "font-size: 14px; "
-        "color: #e0e0e0; "
-        "padding: 20px; "
-        "line-height: 1.8;"
-    );
-    features->setAlignment(Qt::AlignCenter);
-    
-    // Get Started button
     btnGetStarted = new QPushButton("Get Started →", screen);
     btnGetStarted->setStyleSheet(
-        "QPushButton { "
-        "  background-color: #4CAF50; "
-        "  color: white; "
-        "  font-size: 18px; "
-        "  font-weight: bold; "
-        "  padding: 15px 50px; "
-        "  border-radius: 8px; "
-        "  border: none; "
-        "} "
-        "QPushButton:hover { "
-        "  background-color: #45a049; "
-        "} "
-        "QPushButton:pressed { "
-        "  background-color: #3d8b40; "
-        "}"
+        "QPushButton { background-color: #4CAF50; color: white; "
+        "font-size: 24px; padding: 22px 90px; border-radius: 12px; }"
+        "QPushButton:hover { background-color: #45a049; }"
     );
     btnGetStarted->setCursor(Qt::PointingHandCursor);
-    btnGetStarted->setMinimumWidth(250);
     connect(btnGetStarted, &QPushButton::clicked, this, &MainWindow::showConfigScreen);
-    
-    // Version
-    QLabel *version = new QLabel("Version 1.0 | Created for OS Course", screen);
-    version->setStyleSheet("font-size: 11px; color: #707070; padding: 20px;");
-    version->setAlignment(Qt::AlignCenter);
     
     layout->addStretch();
     layout->addWidget(iconLabel);
     layout->addWidget(title);
     layout->addWidget(subtitle);
-    layout->addSpacing(20);
-    layout->addWidget(features);
-    layout->addSpacing(30);
+    layout->addSpacing(60);
     layout->addWidget(btnGetStarted, 0, Qt::AlignCenter);
-    layout->addSpacing(20);
-    layout->addWidget(version);
     layout->addStretch();
     
     return screen;
@@ -164,369 +276,482 @@ QWidget* MainWindow::createConfigScreen()
 {
     QWidget *screen = new QWidget(this);
     QVBoxLayout *mainLayout = new QVBoxLayout(screen);
-    mainLayout->setContentsMargins(50, 30, 50, 30);
-    mainLayout->setSpacing(20);
+    mainLayout->setContentsMargins(100, 60, 100, 60);
+    mainLayout->setSpacing(40);
     
-    // Header
-    QLabel *header = new QLabel("⚙️ Simulation Configuration", screen);
-    header->setStyleSheet("font-size: 24px; font-weight: bold; color: #2196F3; padding: 10px;");
+    QLabel *header = new QLabel("⚙️ Configuration", screen);
+    QFont headerFont;
+    headerFont.setPointSize(40);
+    headerFont.setBold(true);
+    header->setFont(headerFont);
+    header->setStyleSheet("color: #1976D2;");
     header->setAlignment(Qt::AlignCenter);
     
-    QLabel *subtitle = new QLabel("Configure the parameters for your data center simulation", screen);
-    subtitle->setStyleSheet("font-size: 13px; color: #666; padding-bottom: 20px;");
-    subtitle->setAlignment(Qt::AlignCenter);
-    
-    // Configuration form
     QGroupBox *configGroup = new QGroupBox("Simulation Parameters", screen);
-    configGroup->setStyleSheet(
-        "QGroupBox { "
-        "  font-weight: bold; "
-        "  font-size: 14px; "
-        "  border: 2px solid #ddd; "
-        "  border-radius: 8px; "
-        "  margin-top: 10px; "
-        "  padding: 20px; "
-        "} "
-        "QGroupBox::title { "
-        "  subcontrol-origin: margin; "
-        "  left: 10px; "
-        "  padding: 0 5px; "
-        "}"
-    );
+    QVBoxLayout *configLayout = new QVBoxLayout(configGroup);
+    configLayout->setSpacing(40);
+    configLayout->setContentsMargins(40, 50, 40, 40);
     
-    QFormLayout *formLayout = new QFormLayout(configGroup);
-    formLayout->setSpacing(15);
-    formLayout->setContentsMargins(20, 30, 20, 20);
+    // Jobs
+    QHBoxLayout *jobLayout = new QHBoxLayout();
+    QLabel *lblJobs = new QLabel("📋 Number of Jobs:", screen);
+    QFont labelFont;
+    labelFont.setPointSize(17);
+    labelFont.setBold(true);
+    lblJobs->setFont(labelFont);
+    lblJobs->setStyleSheet("color: #1a1a1a;");
     
-    // Number of jobs
     spinJobCount = new QSpinBox(screen);
-    spinJobCount->setRange(1, 100);
-    spinJobCount->setValue(15);
-    spinJobCount->setMinimumHeight(35);
-    spinJobCount->setStyleSheet("font-size: 13px; padding: 5px;");
-    formLayout->addRow("📋 Number of Jobs:", spinJobCount);
+    spinJobCount->setRange(5, 50);
+    spinJobCount->setValue(10);
+    spinJobCount->setMinimumWidth(220);
+    QFont spinFont;
+    spinFont.setPointSize(18);
+    spinJobCount->setFont(spinFont);
     
-    // Priority distribution
-    cmbPriorityDist = new QComboBox(screen);
-    cmbPriorityDist->addItems({"Balanced", "High Priority Heavy", "Low Priority Heavy", "Random"});
-    cmbPriorityDist->setMinimumHeight(35);
-    cmbPriorityDist->setStyleSheet("font-size: 13px; padding: 5px;");
-    formLayout->addRow("⚖️ Priority Distribution:", cmbPriorityDist);
+    jobLayout->addWidget(lblJobs);
+    jobLayout->addStretch();
+    jobLayout->addWidget(spinJobCount);
     
-    // Separator
-    QFrame *line1 = new QFrame(screen);
-    line1->setFrameShape(QFrame::HLine);
-    line1->setStyleSheet("background: #ddd;");
-    formLayout->addRow(line1);
+    // Algorithm
+    QHBoxLayout *schedLayout = new QHBoxLayout();
+    QLabel *lblSched = new QLabel("⚡ Algorithm:", screen);
+    lblSched->setFont(labelFont);
+    lblSched->setStyleSheet("color: #1a1a1a;");
     
-    QLabel *resourceLabel = new QLabel("Resource Configuration", screen);
-    resourceLabel->setStyleSheet("font-weight: bold; color: #555; margin-top: 10px;");
-    formLayout->addRow(resourceLabel);
+    cmbScheduling = new QComboBox(screen);
+    cmbScheduling->addItems({"Priority Scheduling"});
+    cmbScheduling->setMinimumWidth(280);
+    cmbScheduling->setFont(spinFont);
     
-    // CPU Cores
-    spinCPUCores = new QSpinBox(screen);
-    spinCPUCores->setRange(1, 32);
-    spinCPUCores->setValue(8);
-    spinCPUCores->setMinimumHeight(35);
-    spinCPUCores->setStyleSheet("font-size: 13px; padding: 5px;");
-    spinCPUCores->setSuffix(" cores");
-    formLayout->addRow("🔷 CPU Cores:", spinCPUCores);
+    schedLayout->addWidget(lblSched);
+    schedLayout->addStretch();
+    schedLayout->addWidget(cmbScheduling);
     
-    // RAM
-    spinRAMSize = new QSpinBox(screen);
-    spinRAMSize->setRange(4, 128);
-    spinRAMSize->setValue(32);
-    spinRAMSize->setMinimumHeight(35);
-    spinRAMSize->setStyleSheet("font-size: 13px; padding: 5px;");
-    spinRAMSize->setSuffix(" GB");
-    formLayout->addRow("🔶 RAM Size:", spinRAMSize);
+    configLayout->addLayout(jobLayout);
+    configLayout->addLayout(schedLayout);
     
-    // Disk Operations
-    spinDiskOps = new QSpinBox(screen);
-    spinDiskOps->setRange(10, 500);
-    spinDiskOps->setValue(100);
-    spinDiskOps->setMinimumHeight(35);
-    spinDiskOps->setStyleSheet("font-size: 13px; padding: 5px;");
-    spinDiskOps->setSuffix(" ops");
-    formLayout->addRow("💾 Disk I/O Capacity:", spinDiskOps);
-    
-    // Network Speed
-    spinNetworkSpeed = new QSpinBox(screen);
-    spinNetworkSpeed->setRange(100, 10000);
-    spinNetworkSpeed->setValue(1000);
-    spinNetworkSpeed->setSingleStep(100);
-    spinNetworkSpeed->setMinimumHeight(35);
-    spinNetworkSpeed->setStyleSheet("font-size: 13px; padding: 5px;");
-    spinNetworkSpeed->setSuffix(" Mbps");
-    formLayout->addRow("🌐 Network Speed:", spinNetworkSpeed);
+    // Info
+    QLabel *info = new QLabel(
+        "<p style='color: #1a1a1a; font-size: 15px; line-height: 1.8;'>"
+        "<b style='color: #1976D2;'>System Resources:</b><br>"
+        "• CPU: 16 cores<br>• RAM: 64 GB<br>• Disk: 8 slots<br>• Network: 4 channels</p>",
+        screen
+    );
+    info->setStyleSheet("padding: 25px; background: #E3F2FD; border-radius: 10px; border-left: 5px solid #1976D2;");
+    info->setWordWrap(true);
+    configLayout->addWidget(info);
     
     // Buttons
-    QHBoxLayout *buttonLayout = new QHBoxLayout();
-    buttonLayout->setSpacing(15);
+    QHBoxLayout *btnLayout = new QHBoxLayout();
+    btnLayout->setSpacing(30);
     
     btnBackToWelcome = new QPushButton("← Back", screen);
     btnBackToWelcome->setStyleSheet(
-        "QPushButton { "
-        "  background-color: #757575; "
-        "  color: white; "
-        "  font-size: 14px; "
-        "  padding: 12px 30px; "
-        "  border-radius: 6px; "
-        "  border: none; "
-        "} "
+        "QPushButton { background-color: #757575; color: white; font-size: 17px; "
+        "padding: 16px 50px; border-radius: 10px; }"
         "QPushButton:hover { background-color: #616161; }"
     );
     btnBackToWelcome->setCursor(Qt::PointingHandCursor);
     connect(btnBackToWelcome, &QPushButton::clicked, this, &MainWindow::showWelcomeScreen);
     
-    btnStartSimulation = new QPushButton("▶ Start Simulation", screen);
+    btnStartSimulation = new QPushButton("▶ Start", screen);
     btnStartSimulation->setStyleSheet(
-        "QPushButton { "
-        "  background-color: #4CAF50; "
-        "  color: white; "
-        "  font-size: 14px; "
-        "  font-weight: bold; "
-        "  padding: 12px 40px; "
-        "  border-radius: 6px; "
-        "  border: none; "
-        "} "
+        "QPushButton { background-color: #4CAF50; color: white; font-size: 19px; font-weight: bold; "
+        "padding: 16px 70px; border-radius: 10px; }"
         "QPushButton:hover { background-color: #45a049; }"
     );
     btnStartSimulation->setCursor(Qt::PointingHandCursor);
     connect(btnStartSimulation, &QPushButton::clicked, this, &MainWindow::onStartSimulation);
     
-    buttonLayout->addWidget(btnBackToWelcome);
-    buttonLayout->addStretch();
-    buttonLayout->addWidget(btnStartSimulation);
+    btnLayout->addWidget(btnBackToWelcome);
+    btnLayout->addStretch();
+    btnLayout->addWidget(btnStartSimulation);
     
     mainLayout->addWidget(header);
-    mainLayout->addWidget(subtitle);
     mainLayout->addWidget(configGroup);
-    mainLayout->addSpacing(20);
-    mainLayout->addLayout(buttonLayout);
+    mainLayout->addLayout(btnLayout);
     mainLayout->addStretch();
     
     return screen;
 }
 
-// ==================== SIMULATION SCREEN ====================
+// ==================== SIMULATION SCREEN - FULLY VISIBLE ====================
 QWidget* MainWindow::createSimulationScreen()
 {
     QWidget *screen = new QWidget(this);
-    QVBoxLayout *mainLayout = new QVBoxLayout(screen);
-    mainLayout->setSpacing(10);
-    mainLayout->setContentsMargins(10, 10, 10, 10);
+    
+    // FIXED: Use scroll area to show everything
+    QScrollArea *scrollArea = new QScrollArea(screen);
+    scrollArea->setWidgetResizable(true);
+    scrollArea->setStyleSheet("QScrollArea { border: none; background-color: #f0f2f5; }");
+    
+    QWidget *contentWidget = new QWidget();
+    QVBoxLayout *mainLayout = new QVBoxLayout(contentWidget);
+    mainLayout->setSpacing(20);
+    mainLayout->setContentsMargins(25, 25, 25, 25);
     
     // Control Panel
-    QGroupBox *controlGroup = new QGroupBox("⚙️ Simulation Controls", screen);
+    QGroupBox *controlGroup = new QGroupBox("⚙️ Simulation Controls", contentWidget);
+    controlGroup->setMaximumHeight(120);
     QHBoxLayout *controlLayout = new QHBoxLayout(controlGroup);
+    controlLayout->setContentsMargins(20, 30, 20, 20);
     
-    btnPause = new QPushButton("⏸ Pause", screen);
-    btnPause->setStyleSheet("padding: 8px 20px; font-size: 13px;");
-    btnPause->setMinimumWidth(100);
+    QLabel *statusLabel = new QLabel("🟢 Status: Running", contentWidget);
+    QFont statusFont;
+    statusFont.setPointSize(15);
+    statusFont.setBold(true);
+    statusLabel->setFont(statusFont);
+    statusLabel->setStyleSheet("color: #4CAF50;");
     
-    btnStop = new QPushButton("⏹ Stop", screen);
+    btnStop = new QPushButton("⏹ Stop Simulation", contentWidget);
     btnStop->setStyleSheet(
-        "QPushButton { background-color: #f44336; color: white; font-weight: bold; padding: 8px 20px; font-size: 13px; }"
+        "QPushButton { background-color: #f44336; color: white; font-size: 15px; font-weight: bold; "
+        "padding: 14px 35px; border-radius: 8px; min-width: 160px; }"
+        "QPushButton:hover { background-color: #d32f2f; }"
     );
-    btnStop->setMinimumWidth(100);
-    
-    controlLayout->addWidget(btnPause);
-    controlLayout->addWidget(btnStop);
-    controlLayout->addStretch();
-    
-    connect(btnPause, &QPushButton::clicked, this, &MainWindow::onPauseSimulation);
+    btnStop->setCursor(Qt::PointingHandCursor);
     connect(btnStop, &QPushButton::clicked, this, &MainWindow::onStopSimulation);
     
+    controlLayout->addWidget(statusLabel);
+    controlLayout->addStretch();
+    controlLayout->addWidget(btnStop);
     mainLayout->addWidget(controlGroup);
     
-    // Middle Section: Resources + Metrics
-    QHBoxLayout *middleLayout = new QHBoxLayout();
+    // Resources and Metrics Side by Side
+    QHBoxLayout *topLayout = new QHBoxLayout();
+    topLayout->setSpacing(20);
     
-    // Resource Usage
-    QGroupBox *resourceGroup = new QGroupBox("📊 Resource Usage", screen);
-    QVBoxLayout *resourceLayout = new QVBoxLayout(resourceGroup);
-    resourceLayout->setSpacing(8);
+    // Resources Group
+    QGroupBox *resGroup = new QGroupBox("📊 Resource Utilization", contentWidget);
+    resGroup->setMinimumHeight(380);
+    resGroup->setMaximumHeight(420);
+    QVBoxLayout *resLayout = new QVBoxLayout(resGroup);
+    resLayout->setSpacing(15);
+    resLayout->setContentsMargins(20, 35, 20, 20);
     
-    QLabel *lblCPU = new QLabel("🔷 CPU Cores:", screen);
-    cpuUsageBar = new QProgressBar(screen);
-    cpuUsageBar->setMaximum(8);
+    QFont barLabelFont;
+    barLabelFont.setPointSize(13);
+    barLabelFont.setBold(true);
+    
+    // CPU
+    QLabel *lblCPU = new QLabel("🔷 CPU Cores (16 total)", contentWidget);
+    lblCPU->setFont(barLabelFont);
+    lblCPU->setStyleSheet("color: #1a1a1a;");
+    cpuUsageBar = new QProgressBar(contentWidget);
+    cpuUsageBar->setMaximum(100);
     cpuUsageBar->setValue(0);
-    cpuUsageBar->setTextVisible(true);
-    cpuUsageBar->setFormat("%v / %m cores (%p%)");
+    cpuUsageBar->setFormat("%p%");
     cpuUsageBar->setStyleSheet("QProgressBar::chunk { background-color: #2196F3; }");
-    cpuUsageBar->setMinimumHeight(25);
+    cpuUsageBar->setMinimumHeight(35);
     
-    QLabel *lblRAM = new QLabel("🔶 RAM:", screen);
-    ramUsageBar = new QProgressBar(screen);
-    ramUsageBar->setMaximum(32);
+    // RAM
+    QLabel *lblRAM = new QLabel("🔶 RAM Memory (64 GB)", contentWidget);
+    lblRAM->setFont(barLabelFont);
+    lblRAM->setStyleSheet("color: #1a1a1a;");
+    ramUsageBar = new QProgressBar(contentWidget);
+    ramUsageBar->setMaximum(100);
     ramUsageBar->setValue(0);
-    ramUsageBar->setTextVisible(true);
-    ramUsageBar->setFormat("%v / %m GB (%p%)");
+    ramUsageBar->setFormat("%p%");
     ramUsageBar->setStyleSheet("QProgressBar::chunk { background-color: #FF9800; }");
-    ramUsageBar->setMinimumHeight(25);
+    ramUsageBar->setMinimumHeight(35);
     
-    QLabel *lblDisk = new QLabel("💾 Disk I/O:", screen);
-    diskUsageBar = new QProgressBar(screen);
+    // Disk
+    QLabel *lblDisk = new QLabel("💾 Disk I/O (8 slots)", contentWidget);
+    lblDisk->setFont(barLabelFont);
+    lblDisk->setStyleSheet("color: #1a1a1a;");
+    diskUsageBar = new QProgressBar(contentWidget);
     diskUsageBar->setMaximum(100);
     diskUsageBar->setValue(0);
-    diskUsageBar->setTextVisible(true);
-    diskUsageBar->setFormat("%v / %m ops (%p%)");
+    diskUsageBar->setFormat("%p%");
     diskUsageBar->setStyleSheet("QProgressBar::chunk { background-color: #9C27B0; }");
-    diskUsageBar->setMinimumHeight(25);
+    diskUsageBar->setMinimumHeight(35);
     
-    QLabel *lblNetwork = new QLabel("🌐 Network:", screen);
-    networkUsageBar = new QProgressBar(screen);
-    networkUsageBar->setMaximum(1000);
+    // Network
+    QLabel *lblNet = new QLabel("🌐 Network (4 channels)", contentWidget);
+    lblNet->setFont(barLabelFont);
+    lblNet->setStyleSheet("color: #1a1a1a;");
+    networkUsageBar = new QProgressBar(contentWidget);
+    networkUsageBar->setMaximum(100);
     networkUsageBar->setValue(0);
-    networkUsageBar->setTextVisible(true);
-    networkUsageBar->setFormat("%v / %m Mbps (%p%)");
+    networkUsageBar->setFormat("%p%");
     networkUsageBar->setStyleSheet("QProgressBar::chunk { background-color: #4CAF50; }");
-    networkUsageBar->setMinimumHeight(25);
+    networkUsageBar->setMinimumHeight(35);
     
-    resourceLayout->addWidget(lblCPU);
-    resourceLayout->addWidget(cpuUsageBar);
-    resourceLayout->addWidget(lblRAM);
-    resourceLayout->addWidget(ramUsageBar);
-    resourceLayout->addWidget(lblDisk);
-    resourceLayout->addWidget(diskUsageBar);
-    resourceLayout->addWidget(lblNetwork);
-    resourceLayout->addWidget(networkUsageBar);
-    resourceLayout->addStretch();
+    resLayout->addWidget(lblCPU);
+    resLayout->addWidget(cpuUsageBar);
+    resLayout->addWidget(lblRAM);
+    resLayout->addWidget(ramUsageBar);
+    resLayout->addWidget(lblDisk);
+    resLayout->addWidget(diskUsageBar);
+    resLayout->addWidget(lblNet);
+    resLayout->addWidget(networkUsageBar);
+    resLayout->addStretch();
     
-    // Performance Metrics
-    QGroupBox *metricsGroup = new QGroupBox("📈 Performance Metrics", screen);
-    QVBoxLayout *metricsLayout = new QVBoxLayout(metricsGroup);
-    metricsLayout->setSpacing(15);
+    // Metrics Group
+    QGroupBox *metGroup = new QGroupBox("📈 Performance Metrics", contentWidget);
+    metGroup->setMinimumHeight(380);
+    metGroup->setMaximumHeight(420);
+    QVBoxLayout *metLayout = new QVBoxLayout(metGroup);
+    metLayout->setSpacing(18);
+    metLayout->setContentsMargins(20, 35, 20, 20);
     
-    QFont metricsFont;
-    metricsFont.setPointSize(11);
+    QFont metFont;
+    metFont.setPointSize(14);
     
-    lblTotalJobs = new QLabel("📋 Total Jobs: 0", screen);
-    lblTotalJobs->setFont(metricsFont);
+    lblTotalJobs = new QLabel("📋 Total Jobs: 0", contentWidget);
+    lblTotalJobs->setFont(metFont);
+    lblTotalJobs->setStyleSheet("color: #1a1a1a;");
     
-    lblActiveJobs = new QLabel("🔄 Active Jobs: 0", screen);
-    lblActiveJobs->setFont(metricsFont);
-    lblActiveJobs->setStyleSheet("color: #2196F3;");
+    lblActiveJobs = new QLabel("🔄 Active Jobs: 0", contentWidget);
+    lblActiveJobs->setFont(metFont);
+    lblActiveJobs->setStyleSheet("color: #2196F3; font-weight: bold;");
     
-    lblCompletedJobs = new QLabel("✅ Completed: 0", screen);
-    lblCompletedJobs->setFont(metricsFont);
-    lblCompletedJobs->setStyleSheet("color: #4CAF50;");
+    lblCompletedJobs = new QLabel("✅ Completed: 0", contentWidget);
+    lblCompletedJobs->setFont(metFont);
+    lblCompletedJobs->setStyleSheet("color: #4CAF50; font-weight: bold;");
     
-    lblAvgWaitTime = new QLabel("⏱️ Avg Wait Time: 0.00s", screen);
-    lblAvgWaitTime->setFont(metricsFont);
+    QFrame *sep1 = new QFrame(contentWidget);
+    sep1->setFrameShape(QFrame::HLine);
+    sep1->setStyleSheet("background-color: #d0d0d0; min-height: 2px; margin: 5px 0;");
     
-    lblThroughput = new QLabel("⚡ Throughput: 0.00 jobs/s", screen);
-    lblThroughput->setFont(metricsFont);
+    lblAvgWaitTime = new QLabel("⏱️ Avg Wait: 0.00s", contentWidget);
+    lblAvgWaitTime->setFont(metFont);
+    lblAvgWaitTime->setStyleSheet("color: #1a1a1a;");
     
-    lblDeadlocksPrevented = new QLabel("🛡️ Deadlocks Prevented: 0", screen);
-    lblDeadlocksPrevented->setFont(metricsFont);
-    lblDeadlocksPrevented->setStyleSheet("color: #FF5722;");
+    lblThroughput = new QLabel("⚡ Throughput: 0.00 jobs/s", contentWidget);
+    lblThroughput->setFont(metFont);
+    lblThroughput->setStyleSheet("color: #1a1a1a;");
     
-    metricsLayout->addWidget(lblTotalJobs);
-    metricsLayout->addWidget(lblActiveJobs);
-    metricsLayout->addWidget(lblCompletedJobs);
-    metricsLayout->addSpacing(10);
-    metricsLayout->addWidget(lblAvgWaitTime);
-    metricsLayout->addWidget(lblThroughput);
-    metricsLayout->addSpacing(10);
-    metricsLayout->addWidget(lblDeadlocksPrevented);
-    metricsLayout->addStretch();
+    QFrame *sep2 = new QFrame(contentWidget);
+    sep2->setFrameShape(QFrame::HLine);
+    sep2->setStyleSheet("background-color: #d0d0d0; min-height: 2px; margin: 5px 0;");
     
-    middleLayout->addWidget(resourceGroup, 1);
-    middleLayout->addWidget(metricsGroup, 1);
-    mainLayout->addLayout(middleLayout);
+    lblDeadlocksPrevented = new QLabel("🛡️ Deadlocks Prevented: 0", contentWidget);
+    lblDeadlocksPrevented->setFont(metFont);
+    lblDeadlocksPrevented->setStyleSheet("color: #FF5722; font-weight: bold;");
     
-    // Job Table + Log
-    QSplitter *bottomSplitter = new QSplitter(Qt::Vertical, screen);
+    metLayout->addWidget(lblTotalJobs);
+    metLayout->addWidget(lblActiveJobs);
+    metLayout->addWidget(lblCompletedJobs);
+    metLayout->addWidget(sep1);
+    metLayout->addWidget(lblAvgWaitTime);
+    metLayout->addWidget(lblThroughput);
+    metLayout->addWidget(sep2);
+    metLayout->addWidget(lblDeadlocksPrevented);
+    metLayout->addStretch();
     
-    QGroupBox *jobGroup = new QGroupBox("📊 Active Jobs", screen);
-    QVBoxLayout *jobLayout = new QVBoxLayout(jobGroup);
+    topLayout->addWidget(resGroup, 1);
+    topLayout->addWidget(metGroup, 1);
+    mainLayout->addLayout(topLayout);
     
-    jobTable = new QTableWidget(screen);
-    jobTable->setColumnCount(7);
-    jobTable->setHorizontalHeaderLabels({
-        "Job ID", "Priority", "Status", "CPU Time", "RAM (GB)", "Phase", "Wait Time"
-    });
+    // Job Table
+    QGroupBox *tableGroup = new QGroupBox("📊 Active Jobs", contentWidget);
+    tableGroup->setMinimumHeight(280);
+    QVBoxLayout *tableLayout = new QVBoxLayout(tableGroup);
+    tableLayout->setContentsMargins(15, 30, 15, 15);
+    
+    jobTable = new QTableWidget(contentWidget);
+    jobTable->setColumnCount(6);
+    jobTable->setHorizontalHeaderLabels({"Job ID", "Priority", "Status", "CPU", "RAM (GB)", "Wait (s)"});
     jobTable->horizontalHeader()->setStretchLastSection(true);
-    jobTable->horizontalHeader()->setSectionResizeMode(QHeaderView::ResizeToContents);
+    jobTable->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
     jobTable->setAlternatingRowColors(true);
     jobTable->setSelectionBehavior(QAbstractItemView::SelectRows);
     jobTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
-    jobTable->setMinimumHeight(200);
-    jobLayout->addWidget(jobTable);
+    tableLayout->addWidget(jobTable);
+    mainLayout->addWidget(tableGroup);
     
-    QGroupBox *logGroup = new QGroupBox("📜 System Log", screen);
+    // Event Log
+    QGroupBox *logGroup = new QGroupBox("📜 System Event Log", contentWidget);
+    logGroup->setMinimumHeight(220);
+    logGroup->setMaximumHeight(250);
     QVBoxLayout *logLayout = new QVBoxLayout(logGroup);
+    logLayout->setContentsMargins(15, 30, 15, 15);
     
-    logView = new QTextEdit(screen);
+    logView = new QTextEdit(contentWidget);
     logView->setReadOnly(true);
-    logView->setMinimumHeight(150);
-    logView->setMaximumHeight(200);
-    QFont logFont("Consolas", 9);
-    logView->setFont(logFont);
     logLayout->addWidget(logView);
+    mainLayout->addWidget(logGroup);
     
-    bottomSplitter->addWidget(jobGroup);
-    bottomSplitter->addWidget(logGroup);
-    bottomSplitter->setStretchFactor(0, 3);
-    bottomSplitter->setStretchFactor(1, 1);
+    scrollArea->setWidget(contentWidget);
     
-    mainLayout->addWidget(bottomSplitter, 1);
+    QVBoxLayout *screenLayout = new QVBoxLayout(screen);
+    screenLayout->setContentsMargins(0, 0, 0, 0);
+    screenLayout->addWidget(scrollArea);
     
     return screen;
 }
 
-// ==================== RESULTS SCREEN ====================
+// ==================== RESULTS SCREEN - FIXED ====================
 QWidget* MainWindow::createResultsScreen()
 {
     QWidget *screen = new QWidget(this);
-    QVBoxLayout *layout = new QVBoxLayout(screen);
-    layout->setAlignment(Qt::AlignCenter);
-    layout->setSpacing(30);
-    layout->setContentsMargins(50, 50, 50, 50);
     
-    QLabel *header = new QLabel("✅ Simulation Complete!", screen);
-    header->setStyleSheet("font-size: 32px; font-weight: bold; color: #4CAF50;");
+    // Use scroll area to prevent overlapping
+    QScrollArea *scrollArea = new QScrollArea(screen);
+    scrollArea->setWidgetResizable(true);
+    scrollArea->setStyleSheet("QScrollArea { border: none; background-color: #f0f2f5; }");
+    
+    QWidget *contentWidget = new QWidget();
+    QVBoxLayout *layout = new QVBoxLayout(contentWidget);
+    layout->setSpacing(30);
+    layout->setContentsMargins(80, 60, 80, 60);
+    
+    // Icon
+    QLabel *icon = new QLabel("✅", contentWidget);
+    QFont iconFont;
+    iconFont.setPointSize(80);
+    icon->setFont(iconFont);
+    icon->setAlignment(Qt::AlignCenter);
+    icon->setStyleSheet("color: #4CAF50;");
+    
+    // Header
+    QLabel *header = new QLabel("Simulation Complete!", contentWidget);
+    QFont headerFont;
+    headerFont.setPointSize(38);
+    headerFont.setBold(true);
+    header->setFont(headerFont);
+    header->setStyleSheet("color: #4CAF50;");
     header->setAlignment(Qt::AlignCenter);
     
-    lblFinalStats = new QLabel("", screen);
-    lblFinalStats->setStyleSheet(
-        "font-size: 14px; "
-        "padding: 30px; "
-        "border: 2px solid #ddd; "
-        "border-radius: 10px; "
-        "background: #f9f9f9;"
-    );
-    lblFinalStats->setAlignment(Qt::AlignLeft);
-    lblFinalStats->setMinimumWidth(500);
+    // Stats Group
+    QGroupBox *statsGroup = new QGroupBox("📊 Results", contentWidget);
+    statsGroup->setMinimumHeight(520);
+    QVBoxLayout *statsLayout = new QVBoxLayout(statsGroup);
+    statsLayout->setSpacing(18);
+    statsLayout->setContentsMargins(35, 45, 35, 35);
     
+    QFont statsFont;
+    statsFont.setPointSize(15);
+    
+    lblFinalTotalJobs = new QLabel("Total Jobs: 0", contentWidget);
+    lblFinalTotalJobs->setFont(statsFont);
+    lblFinalTotalJobs->setStyleSheet("color: #1a1a1a;");
+    
+    lblFinalCompletedJobs = new QLabel("Completed: 0", contentWidget);
+    lblFinalCompletedJobs->setFont(statsFont);
+    lblFinalCompletedJobs->setStyleSheet("color: #4CAF50; font-weight: bold;");
+    
+    lblFinalAvgWaitTime = new QLabel("Avg Wait: 0.00s", contentWidget);
+    lblFinalAvgWaitTime->setFont(statsFont);
+    lblFinalAvgWaitTime->setStyleSheet("color: #1a1a1a;");
+    
+    lblFinalAvgTurnaroundTime = new QLabel("Avg Turnaround: 0.00s", contentWidget);
+    lblFinalAvgTurnaroundTime->setFont(statsFont);
+    lblFinalAvgTurnaroundTime->setStyleSheet("color: #1a1a1a;");
+    
+    lblFinalThroughput = new QLabel("Throughput: 0.00", contentWidget);
+    lblFinalThroughput->setFont(statsFont);
+    lblFinalThroughput->setStyleSheet("color: #1a1a1a;");
+    
+    QFrame *sep1 = new QFrame(contentWidget);
+    sep1->setFrameShape(QFrame::HLine);
+    sep1->setStyleSheet("background-color: #bbb; min-height: 2px; margin: 10px 0;");
+    
+    lblFinalCPUUtil = new QLabel("CPU: 0.00%", contentWidget);
+    lblFinalCPUUtil->setFont(statsFont);
+    lblFinalCPUUtil->setStyleSheet("color: #1a1a1a;");
+    
+    lblFinalRAMUtil = new QLabel("RAM: 0.00%", contentWidget);
+    lblFinalRAMUtil->setFont(statsFont);
+    lblFinalRAMUtil->setStyleSheet("color: #1a1a1a;");
+    
+    lblFinalDiskUtil = new QLabel("Disk: 0.00%", contentWidget);
+    lblFinalDiskUtil->setFont(statsFont);
+    lblFinalDiskUtil->setStyleSheet("color: #1a1a1a;");
+    
+    lblFinalNetworkUtil = new QLabel("Network: 0.00%", contentWidget);
+    lblFinalNetworkUtil->setFont(statsFont);
+    lblFinalNetworkUtil->setStyleSheet("color: #1a1a1a;");
+    
+    QFrame *sep2 = new QFrame(contentWidget);
+    sep2->setFrameShape(QFrame::HLine);
+    sep2->setStyleSheet("background-color: #bbb; min-height: 2px; margin: 10px 0;");
+    
+    lblFinalDeadlocksPrevented = new QLabel("Deadlocks Prevented: 0", contentWidget);
+    lblFinalDeadlocksPrevented->setFont(statsFont);
+    lblFinalDeadlocksPrevented->setStyleSheet("color: #FF5722; font-weight: bold;");
+    
+    statsLayout->addWidget(lblFinalTotalJobs);
+    statsLayout->addWidget(lblFinalCompletedJobs);
+    statsLayout->addSpacing(10);
+    statsLayout->addWidget(lblFinalAvgWaitTime);
+    statsLayout->addWidget(lblFinalAvgTurnaroundTime);
+    statsLayout->addWidget(lblFinalThroughput);
+    statsLayout->addWidget(sep1);
+    statsLayout->addWidget(lblFinalCPUUtil);
+    statsLayout->addWidget(lblFinalRAMUtil);
+    statsLayout->addWidget(lblFinalDiskUtil);
+    statsLayout->addWidget(lblFinalNetworkUtil);
+    statsLayout->addWidget(sep2);
+    statsLayout->addWidget(lblFinalDeadlocksPrevented);
+    
+    // Log location info
+    QString logsPath = QDir::currentPath() + "/logs";
+    QLabel *logInfo = new QLabel(
+        QString("<p style='color: #1a1a1a; font-size: 14px; line-height: 1.7;'>"
+                "<b style='color: #1976D2;'>📁 Log Files Location:</b><br>"
+                "<code style='background: #e0e0e0; padding: 5px; border-radius: 4px;'>%1</code><br><br>"
+                "<b>Files:</b> system.log, job_*.log</p>").arg(logsPath),
+        contentWidget
+    );
+    logInfo->setStyleSheet("padding: 20px; background: #E3F2FD; border-radius: 8px; border-left: 4px solid #1976D2;");
+    logInfo->setWordWrap(true);
+    
+    // Buttons - FIXED SPACING
     QHBoxLayout *btnLayout = new QHBoxLayout();
+    btnLayout->setSpacing(25);
+    btnLayout->setContentsMargins(0, 20, 0, 0);
     
-    btnExport = new QPushButton("📄 Export Results", screen);
-    btnExport->setStyleSheet(
-        "QPushButton { background-color: #2196F3; color: white; padding: 12px 30px; font-size: 14px; border-radius: 6px; }"
+    btnViewLogs = new QPushButton("📄 View Logs", contentWidget);
+    btnViewLogs->setStyleSheet(
+        "QPushButton { background-color: #2196F3; color: white; font-size: 16px; font-weight: bold; "
+        "padding: 16px 45px; border-radius: 10px; }"
+        "QPushButton:hover { background-color: #1976D2; }"
     );
-    btnExport->setCursor(Qt::PointingHandCursor);
-    connect(btnExport, &QPushButton::clicked, this, [this]() {
-        QMessageBox::information(this, "Export", "Export feature coming in Phase 2!");
-    });
+    btnViewLogs->setCursor(Qt::PointingHandCursor);
+    connect(btnViewLogs, &QPushButton::clicked, this, &MainWindow::onViewLogs);
     
-    btnRunAgain = new QPushButton("↻ Run New Simulation", screen);
-    btnRunAgain->setStyleSheet(
-        "QPushButton { background-color: #4CAF50; color: white; padding: 12px 30px; font-size: 14px; font-weight: bold; border-radius: 6px; }"
+    btnNewSimulation = new QPushButton("🔄 New", contentWidget);
+    btnNewSimulation->setStyleSheet(
+        "QPushButton { background-color: #4CAF50; color: white; font-size: 16px; font-weight: bold; "
+        "padding: 16px 45px; border-radius: 10px; }"
+        "QPushButton:hover { background-color: #45a049; }"
     );
-    btnRunAgain->setCursor(Qt::PointingHandCursor);
-    connect(btnRunAgain, &QPushButton::clicked, this, &MainWindow::onResetSimulation);
+    btnNewSimulation->setCursor(Qt::PointingHandCursor);
+    connect(btnNewSimulation, &QPushButton::clicked, this, &MainWindow::onNewSimulation);
     
-    btnLayout->addWidget(btnExport);
-    btnLayout->addWidget(btnRunAgain);
+    btnExit = new QPushButton("❌ Exit", contentWidget);
+    btnExit->setStyleSheet(
+        "QPushButton { background-color: #757575; color: white; font-size: 16px; font-weight: bold; "
+        "padding: 16px 45px; border-radius: 10px; }"
+        "QPushButton:hover { background-color: #616161; }"
+    );
+    btnExit->setCursor(Qt::PointingHandCursor);
+    connect(btnExit, &QPushButton::clicked, this, &QMainWindow::close);
     
+    btnLayout->addStretch();
+    btnLayout->addWidget(btnViewLogs);
+    btnLayout->addWidget(btnNewSimulation);
+    btnLayout->addWidget(btnExit);
+    btnLayout->addStretch();
+    
+    layout->addWidget(icon);
     layout->addWidget(header);
-    layout->addWidget(lblFinalStats);
+    layout->addSpacing(20);
+    layout->addWidget(statsGroup);
+    layout->addSpacing(15);
+    layout->addWidget(logInfo);
     layout->addSpacing(20);
     layout->addLayout(btnLayout);
     layout->addStretch();
+    
+    scrollArea->setWidget(contentWidget);
+    
+    QVBoxLayout *mainLayout = new QVBoxLayout(screen);
+    mainLayout->setContentsMargins(0, 0, 0, 0);
+    mainLayout->addWidget(scrollArea);
     
     return screen;
 }
@@ -535,157 +760,228 @@ QWidget* MainWindow::createResultsScreen()
 void MainWindow::showWelcomeScreen()
 {
     stackedWidget->setCurrentWidget(welcomeScreen);
-    statusBar()->showMessage("Welcome to Data Center Simulator");
+    statusBar()->showMessage("Ready");
 }
 
 void MainWindow::showConfigScreen()
 {
     stackedWidget->setCurrentWidget(configScreen);
-    statusBar()->showMessage("Configure simulation parameters");
+    statusBar()->showMessage("Configure parameters");
 }
 
 void MainWindow::showSimulationScreen()
 {
     stackedWidget->setCurrentWidget(simulationScreen);
-    statusBar()->showMessage("🔄 Simulation running...");
+    statusBar()->showMessage("Running simulation...");
 }
 
 void MainWindow::showResultsScreen()
 {
     stackedWidget->setCurrentWidget(resultsScreen);
-    statusBar()->showMessage("Simulation completed successfully");
+    statusBar()->showMessage("Completed");
 }
 
 // ==================== SIMULATION CONTROL ====================
 void MainWindow::onStartSimulation()
 {
-    // Get config values
     int numJobs = spinJobCount->value();
-    configCPUCores = spinCPUCores->value();
-    configRAMSize = spinRAMSize->value();
-    configDiskOps = spinDiskOps->value();
-    configNetworkSpeed = spinNetworkSpeed->value();
     
-    // Update progress bar maximums
-    cpuUsageBar->setMaximum(configCPUCores);
-    ramUsageBar->setMaximum(configRAMSize);
-    diskUsageBar->setMaximum(configDiskOps);
-    networkUsageBar->setMaximum(configNetworkSpeed);
+    // FIXED: White background, black text
+    QMessageBox msgBox(this);
+    msgBox.setWindowTitle("Starting Simulation");
+    msgBox.setStyleSheet(
+        "QMessageBox { background-color: white; }"
+        "QLabel { color: #1a1a1a; font-size: 15px; }"
+        "QPushButton { background-color: #2196F3; color: white; padding: 10px 30px; "
+        "border-radius: 6px; font-size: 14px; min-width: 80px; }"
+    );
+    msgBox.setText(
+        QString("<h3 style='color: #1976D2;'>Starting Simulation</h3>"
+                "<p style='color: #1a1a1a; font-size: 14px;'>"
+                "<b>Jobs:</b> %1<br><b>Algorithm:</b> Priority Scheduling</p>")
+        .arg(numJobs)
+    );
+    msgBox.setStandardButtons(QMessageBox::Ok);
+    msgBox.exec();
     
-    initializeSimulation(numJobs);
-    
-    isRunning = true;
-    isPaused = false;
-    
-    btnPause->setEnabled(true);
-    btnStop->setEnabled(true);
-    
-    // Initialize log
-    logView->clear();
-    logView->append("=== Data Center Resource Management System ===");
-    QString timestamp = QDateTime::currentDateTime().toString("hh:mm:ss");
-    logView->append(QString("[%1] Simulation started with %2 jobs").arg(timestamp).arg(numJobs));
-    logView->append(QString("[%1] Resources: %2 CPU cores, %3 GB RAM, %4 Disk ops, %5 Mbps Network\n")
-        .arg(timestamp).arg(configCPUCores).arg(configRAMSize).arg(configDiskOps).arg(configNetworkSpeed));
-    
-    updateTimer->start(100);
     showSimulationScreen();
-}
-
-void MainWindow::onStopSimulation()
-{
-    if (isRunning) {
-        updateTimer->stop();
-        
-        QString timestamp = QDateTime::currentDateTime().toString("hh:mm:ss");
-        logView->append(QString("[%1] Simulation stopped").arg(timestamp));
-        
-        // Prepare results
-        double avgWaitTime = completedJobs > 0 ? (simulationCounter / 10.0) / completedJobs : 0.0;
-        double throughput = completedJobs > 0 ? completedJobs / (simulationCounter / 10.0) : 0.0;
-        int deadlocksPrevented = simulationCounter / 50;
-        
-        lblFinalStats->setText(QString(
-            "<h3>Final Statistics</h3>"
-            "<br>"
-            "<b>📋 Total Jobs:</b> %1<br>"
-            "<b>✅ Completed Jobs:</b> %2<br>"
-            "<b>⏱️ Average Wait Time:</b> %3s<br>"
-            "<b>⚡ Throughput:</b> %4 jobs/s<br>"
-            "<b>🛡️ Deadlocks Prevented:</b> %5<br>"
-            "<br>"
-            "<b>💻 CPU Cores Used:</b> %6<br>"
-            "<b>💾 RAM Allocated:</b> %7 GB<br>"
-            "<b>📊 Disk Operations:</b> %8<br>"
-            "<b>🌐 Network Speed:</b> %9 Mbps"
-        )
-        .arg(totalJobs)
-        .arg(completedJobs)
-        .arg(avgWaitTime, 0, 'f', 2)
-        .arg(throughput, 0, 'f', 2)
-        .arg(deadlocksPrevented)
-        .arg(configCPUCores)
-        .arg(configRAMSize)
-        .arg(configDiskOps)
-        .arg(configNetworkSpeed));
-        
-        cleanupSimulation();
-        
-        isRunning = false;
-        isPaused = false;
-        
-        btnPause->setEnabled(false);
-        btnPause->setText("⏸ Pause");
-        btnStop->setEnabled(false);
-        
-        showResultsScreen();
-    }
-}
-
-void MainWindow::onPauseSimulation()
-{
-    if (isRunning && !isPaused) {
-        updateTimer->stop();
-        isPaused = true;
-        btnPause->setText("▶ Resume");
-        statusBar()->showMessage("⏸ Simulation paused");
-        
-        QString timestamp = QDateTime::currentDateTime().toString("hh:mm:ss");
-        logView->append(QString("[%1] Simulation paused").arg(timestamp));
-    } 
-    else if (isPaused) {
-        updateTimer->start(100);
-        isPaused = false;
-        btnPause->setText("⏸ Pause");
-        statusBar()->showMessage("🔄 Simulation running...");
-        
-        QString timestamp = QDateTime::currentDateTime().toString("hh:mm:ss");
-        logView->append(QString("[%1] Simulation resumed").arg(timestamp));
-    }
-}
-
-void MainWindow::onResetSimulation()
-{
+    
+    jobTable->setRowCount(0);
+    logView->clear();
     cpuUsageBar->setValue(0);
     ramUsageBar->setValue(0);
     diskUsageBar->setValue(0);
     networkUsageBar->setValue(0);
     
-    lblTotalJobs->setText("📋 Total Jobs: 0");
-    lblActiveJobs->setText("🔄 Active Jobs: 0");
-    lblCompletedJobs->setText("✅ Completed: 0");
-    lblAvgWaitTime->setText("⏱️ Avg Wait Time: 0.00s");
-    lblThroughput->setText("⚡ Throughput: 0.00 jobs/s");
-    lblDeadlocksPrevented->setText("🛡️ Deadlocks Prevented: 0");
+    lblTotalJobs->setText(QString("Total: %1").arg(numJobs));
+    lblActiveJobs->setText("Active: 0");
+    lblCompletedJobs->setText("Completed: 0");
+    lblAvgWaitTime->setText("Wait: 0.00s");
+    lblThroughput->setText("Throughput: 0.00");
+    lblDeadlocksPrevented->setText("Deadlocks: 0");
     
-    jobTable->setRowCount(0);
+    isRunning = true;
+    stopRequested = false;
+    updateTimer->start(500);
     
-    totalJobs = 0;
-    completedJobs = 0;
-    activeJobs = 0;
-    simulationCounter = 0;
-    mockJobIds.clear();
+    if (simulationThread.joinable()) {
+        simulationThread.join();
+    }
+    simulationThread = std::thread(&MainWindow::runSimulation, this, numJobs);
+}
+
+void MainWindow::onStopSimulation()
+{
+    stopRequested = true;
+    isRunning = false;
+    updateTimer->stop();
     
+    QMessageBox::information(this, "Stopped",
+        "<p style='color: #1a1a1a; font-size: 14px;'>Simulation stopped.</p>");
+    
+    if (simulationThread.joinable()) {
+        simulationThread.join();
+    }
+    showResultsScreen();
+    displayFinalResults();
+}
+
+void MainWindow::onNewSimulation()
+{
+    cleanupSimulation();
     showConfigScreen();
 }
 
+void MainWindow::onViewLogs()
+{
+    QString logsPath = QDir::currentPath() + "/logs";
+    QDesktopServices::openUrl(QUrl::fromLocalFile(logsPath));
+}
+
+// ==================== SIMULATION ====================
+void MainWindow::runSimulation(int numJobs)
+{
+    try {
+        cleanupSimulation();
+        addLogMessage("System", "Initializing...");
+        
+        resourceManager = new ResourceManager(16, 64, 8, 4);
+        deadlockManager = new DeadlockManager(resourceManager);
+        scheduler = new Scheduler(resourceManager, deadlockManager);
+        
+        addLogMessage("System", QString("Creating %1 jobs...").arg(numJobs));
+        
+        std::random_device rd;
+        std::mt19937 gen(rd());
+        
+        for (int i = 1; i <= numJobs && !stopRequested; i++) {
+            std::uniform_int_distribution<> prioDist(1, 3);
+            JobPriority priority = static_cast<JobPriority>(prioDist(gen));
+            
+            std::uniform_int_distribution<> cpuDist(1, 4);
+            std::uniform_int_distribution<> ramDist(2, 16);
+            std::uniform_int_distribution<> diskDist(1, 3);
+            std::uniform_int_distribution<> netDist(1, 2);
+            
+            int cpuMultiplier = (priority == JobPriority::HIGH) ? 2 : 1;
+            
+            ResourceRequest needs(cpuDist(gen) * cpuMultiplier, ramDist(gen), diskDist(gen), netDist(gen));
+            Job* job = new Job(i, priority, needs, resourceManager, deadlockManager);
+            scheduler->addJob(job);
+            
+            addLogMessage("Job " + QString::number(i), 
+                QString("Created (%1)").arg(QString::fromStdString(job->getPriorityString())));
+            
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        }
+        
+        if (!stopRequested) {
+            addLogMessage("System", "Starting scheduling...");
+            scheduler->scheduleAll();
+            scheduler->waitForAllJobs();
+            addLogMessage("System", "All jobs completed!");
+        }
+        
+        isRunning = false;
+        updateTimer->stop();
+        
+        QMetaObject::invokeMethod(this, [this]() {
+            showResultsScreen();
+            displayFinalResults();
+        }, Qt::QueuedConnection);
+        
+    } catch (const std::exception& e) {
+        addLogMessage("ERROR", QString("Error: %1").arg(e.what()));
+        isRunning = false;
+        updateTimer->stop();
+    }
+}
+
+void MainWindow::updateUI()
+{
+    if (!resourceManager || !scheduler) return;
+    
+    cpuUsageBar->setValue(static_cast<int>(resourceManager->getCPUUtilization()));
+    ramUsageBar->setValue(static_cast<int>(resourceManager->getRAMUtilization()));
+    diskUsageBar->setValue(static_cast<int>(resourceManager->getDiskUtilization()));
+    networkUsageBar->setValue(static_cast<int>(resourceManager->getNetworkUtilization()));
+    
+    int active = scheduler->getTotalJobs() - scheduler->getCompletedJobs();
+    lblActiveJobs->setText(QString("Active: %1").arg(active));
+    lblCompletedJobs->setText(QString("Completed: %1").arg(scheduler->getCompletedJobs()));
+    
+    if (scheduler->getCompletedJobs() > 0) {
+        lblAvgWaitTime->setText(QString("Wait: %1s").arg(scheduler->getAverageWaitingTime(), 0, 'f', 2));
+        lblThroughput->setText(QString("Throughput: %1").arg(scheduler->getThroughput(), 0, 'f', 2));
+    }
+    
+    lblDeadlocksPrevented->setText(QString("Deadlocks: %1").arg(deadlockManager->getDeadlocksPrevented()));
+}
+
+void MainWindow::displayFinalResults()
+{
+    if (!scheduler || !resourceManager || !deadlockManager) return;
+    
+    lblFinalTotalJobs->setText(QString("Total Jobs: %1").arg(scheduler->getTotalJobs()));
+    lblFinalCompletedJobs->setText(QString("Completed: %1").arg(scheduler->getCompletedJobs()));
+    lblFinalAvgWaitTime->setText(QString("Avg Wait: %1s").arg(scheduler->getAverageWaitingTime(), 0, 'f', 2));
+    lblFinalAvgTurnaroundTime->setText(QString("Avg Turnaround: %1s").arg(scheduler->getAverageTurnaroundTime(), 0, 'f', 2));
+    lblFinalThroughput->setText(QString("Throughput: %1 jobs/s").arg(scheduler->getThroughput(), 0, 'f', 2));
+    lblFinalCPUUtil->setText(QString("CPU: %1%").arg(resourceManager->getCPUUtilization(), 0, 'f', 2));
+    lblFinalRAMUtil->setText(QString("RAM: %1%").arg(resourceManager->getRAMUtilization(), 0, 'f', 2));
+    lblFinalDiskUtil->setText(QString("Disk: %1%").arg(resourceManager->getDiskUtilization(), 0, 'f', 2));
+    lblFinalNetworkUtil->setText(QString("Network: %1%").arg(resourceManager->getNetworkUtilization(), 0, 'f', 2));
+    lblFinalDeadlocksPrevented->setText(QString("Deadlocks Prevented: %1").arg(deadlockManager->getDeadlocksPrevented()));
+}
+
+void MainWindow::addLogMessage(const QString& source, const QString& message)
+{
+    QString timestamp = QDateTime::currentDateTime().toString("hh:mm:ss");
+    QString logEntry = QString("<span style='color: #666;'>[%1]</span> "
+                               "<span style='color: #1976D2; font-weight: bold;'>%2:</span> "
+                               "<span style='color: #1a1a1a;'>%3</span>")
+                        .arg(timestamp, source, message);
+    
+    QMetaObject::invokeMethod(this, [this, logEntry]() {
+        logView->append(logEntry);
+    }, Qt::QueuedConnection);
+}
+
+void MainWindow::cleanupSimulation()
+{
+    if (updateTimer && updateTimer->isActive()) {
+        updateTimer->stop();
+    }
+    if (scheduler) {
+        delete scheduler;
+        scheduler = nullptr;
+    }
+    if (deadlockManager) {
+        delete deadlockManager;
+        deadlockManager = nullptr;
+    }
+    if (resourceManager) {
+        delete resourceManager;
+        resourceManager = nullptr;
+    }
+}
