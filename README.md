@@ -1,4 +1,4 @@
-# Data Center Resource Management System - Operating System
+# Smart Data Center Resource Simulation System - Operating System
 
 ## 🎯 Project Overview
 
@@ -100,7 +100,7 @@ A comprehensive Operating System simulation that models a **Data Center Resource
 
 ---
 
-## 📦 Installation
+## Installation
 
 ### Windows
 
@@ -332,7 +332,7 @@ DataCenter-Simulator/
 │
 ├── CMakeLists.txt                 # CMake configuration
 ├── Makefile                       # Windows Makefile (console)
-└── README.md                      # This file
+└── README.md                      
 ```
 
 ---
