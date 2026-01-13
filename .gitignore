@@ -17,9 +17,6 @@ Makefile
 *.exe
 *.out
 
-# ===== Logs =====
-logs/
-
 # ===== Qt =====
 *.autosave
 *.user

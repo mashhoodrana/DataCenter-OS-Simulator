@@ -1,6 +1,6 @@
 // ============================================
 // FILE: main_gui.cpp
-// DESCRIPTION: GUI Application Entry Point
+// DESCRIPTION: GUI Application driver for Data Center Simulator
 // ============================================
 
 #include "../../include/gui/mainwindow.h"

@@ -21,6 +21,8 @@
 #include <QScrollArea>
 #include <random>
 
+
+// Global logger instance
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , isRunning(false)
@@ -126,6 +128,7 @@ void MainWindow::setupUI()
     stackedWidget->addWidget(resultsScreen);
 }
 
+// ==================== MENU BAR & STATUS BAR ====================
 void MainWindow::setupMenuBar()
 {
     QMenuBar *menuBar = new QMenuBar(this);
