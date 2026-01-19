@@ -513,16 +513,6 @@ Students/Users will understand:
 
 Educational project for academic purposes. Free to use and modify for learning.
 
----
-
-## 🙏 Acknowledgments
-
-- Operating Systems course materials
-- Qt Documentation and Community
-- Modern C++ threading best practices
-- Banker's Algorithm research papers
-
----
 
 ## 📞 Support
 
@@ -565,4 +555,4 @@ cat system.log                  # Linux/macOS
 type system.log                 # Windows
 ```
 
-**Enjoy simulating your data center!** 🚀
+**Enjoy simulating your data center!**
