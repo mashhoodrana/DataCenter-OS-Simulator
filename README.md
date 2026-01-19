@@ -556,3 +556,7 @@ type system.log                 # Windows
 ```
 
 **Enjoy simulating your data center!**
+
+## 🤝 Contributing
+Contributions are welcome!
+Check the Issues section for `good first issue` and `help wanted` labels.
