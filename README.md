@@ -1,4 +1,4 @@
-# Smart Data Center Resource Simulation System - Operating System
+# Smart Data Center Resource Management System - Operating System
 
 ## 🎯 Project Overview
 
@@ -451,7 +451,6 @@ The `logs/` directory is created automatically at runtime.
 - [ ] Export results to CSV/Excel
 - [ ] Network-based distributed simulation
 - [ ] Advanced memory management strategies
-- [ ] Gantt chart visualization
 
 ### Contribution Ideas
 - Dark/Light theme toggle
