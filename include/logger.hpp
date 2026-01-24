@@ -34,4 +34,4 @@ public:
 // Global logger instance
 extern Logger* globalLogger;
 
-#endif // LOGGER_HPP
+#endif 
