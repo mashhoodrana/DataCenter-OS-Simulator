@@ -65,4 +65,4 @@ public:
     std::vector<Allocation> getAllocations();
 };
 
-#endif // RESOURCE_MANAGER_HPP
+#endif 

@@ -80,4 +80,4 @@ public:
     std::string getSummary() const;  
 };
 
-#endif // JOB_HPP
+#endif 
