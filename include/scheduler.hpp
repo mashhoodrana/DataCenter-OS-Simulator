@@ -56,4 +56,4 @@ public:
     std::string getSchedulingReport() const;
 };
 
-#endif // SCHEDULER_HPP
+#endif
