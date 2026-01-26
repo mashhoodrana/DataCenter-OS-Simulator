@@ -105,7 +105,7 @@ A comprehensive Operating System simulation that models a **Data Center Resource
 ### Windows
 
 #### 1. Install Qt6
-Download from: https://www.qt.io/download-qt-installer
+Download from: https://www.qt.io/download-qt-installer.
 - Select: Qt 6.x → Desktop (MinGW or MSVC)
 - Include: CMake, Qt Creator
 
