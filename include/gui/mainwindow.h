@@ -122,12 +122,12 @@ private:
     std::atomic<bool> isRunning;
     std::atomic<bool> stopRequested;
     
-    // Core simulation objects (using raw pointers for proper lifecycle management)
+    // Core simulation objects 
     ResourceManager* resourceManager;
     DeadlockManager* deadlockManager;
     Scheduler* scheduler;
     
-    // Simulation thread
+    
     std::thread simulationThread;
     
     void addJobToTable(int jobId, const QString& priority, const QString& status, int cpuCores, int ramGB);
