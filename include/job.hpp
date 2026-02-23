@@ -37,8 +37,8 @@ private:
     std::chrono::steady_clock::time_point startTime;
     std::chrono::steady_clock::time_point endTime;
     
-    double waitingTime;  // in seconds
-    double executionTime; // in seconds
+    double waitingTime; 
+    double executionTime; 
     
     // Thread
     std::thread* jobThread;
